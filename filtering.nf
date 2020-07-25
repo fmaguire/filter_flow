@@ -11,6 +11,23 @@ Channel
     .ifEmpty{ error "Cannot find any reads matching: ${params.reads}" }
     .set{ metagenome_pair }
 
+// generate combined single ended reads
+//process build_single_ended {
+//
+//}
+
+// generate fasta reads
+process convert_to_fasta {
+    input: 
+        val(label), path(reads) from metagenome_pair
+    output:
+        path "metagenome_reads.fasta" into metagenome_fasta
+    script:
+        """
+        cat $reads | awk '{if(NR%4==1) {printf(">%s\n",substr($0,2));} else if(NR%4==2) print;}' > metageone_reads.fasta
+        """
+}
+
 
 
 // parse the input csv with all the tools and params to try
@@ -25,7 +42,7 @@ runs_ch
     .filter{ it[0] == "bowtie2" }
     .set{ bowtie2_params }
 
-//// bowtie2
+// bowtie2
 process prepare_bowtie2_index {
     input:
         path amr_ref from params.amr_database
