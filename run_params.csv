@@ -7,4 +7,9 @@ bowtie2,local_very_fast,--very-fast-local
 bowtie2,local_fast,--fast-local
 bowtie2,local_sensitive,--sensitive-local
 bowtie2,local_very_sensitive,--very-sensitive-local
-bullshit,bah,bah
+blastn,megablast_longword,-task megablast -word_size 22
+blastn,megablast_default,-task megablast -word_size 28
+blastn,megablast_shortword,-task megablast -word_size 34
+blastn,blastn_longword,-task blastn -word_size 7
+blastn,blastn_default,-task blastn -word_size 11
+blastn,blastn_shortword,-task blastn -word_size 15
