@@ -16,6 +16,7 @@ Channel
     .set{ metagenome_fastq_pair }
 metagenome_fastq_pair.into { single_end_conversion; 
                              fasta_conversion;
+                             BWA_input;
                              BOWTIE2_input;
                              ARIBA_input; 
                              GROOT_input }
@@ -61,6 +62,7 @@ Channel
     .branch {
         BLASTN_params: it[0] == "blastn"
         BOWTIE2_params: it[0] == "bowtie2"
+        BWA_params: it[0] == "bwa"
      }
     .set{ runs_ch }
 
@@ -133,9 +135,46 @@ process run_bowtie2_commands {
     input:
         set val(tool), val(label), val(run_params), val(read_label), path(reads), path(bowtie2_index) from BOWTIE2_run_params
     output:
-        file '*.bam' into BOWTIE2_output
+        file '*.sam' into BOWTIE2_output
     script:
         """
-        bowtie2 -x amr.bowtie2.db -U $reads $run_params -p ${task.cpus} -1 ${reads[0]} -2 ${reads[1]} | samtools view -bS - > ${label}.bam
+        bowtie2 -x amr.bowtie2.db $run_params -p ${task.cpus} -1 ${reads[0]} -2 ${reads[1]} > {label}.sam
+        """
+        //#| samtools view -bS - > ${label}.bam
+}
+
+
+// BWA-MEM
+process prepare_bwa_index {
+    conda "$baseDir/conda_envs/bwa.yml"
+    input:
+        path amr_ref from params.amr_database
+    output:
+        path 'amr.bwa.db*' into BWA_database
+    script:
+        """
+        bwa index -p amr.bwa.db ${amr_ref} 
         """
 }
+
+runs_ch.BWA_params
+    .combine( BWA_input )
+    .combine( BWA_database.toList() )
+    .set{ BWA_run_params }
+
+process run_bwa_commands {
+    publishDir "results/nt/bowtie2", pattern: '*.bam', saveAs: { "${file(it).getSimpleName()}.${file(it).getExtension()}"}
+    conda "$baseDir/conda_envs/bwa.yml"
+    input:
+        set val(tool), val(label), val(run_params), val(read_label), path(reads), path(bwa_index) from BWA_run_params
+    output:
+        file '*.sam' into BWA_output
+    script:
+        """
+        bwa mem -t ${task.cpus} $run_params amr.bwa.db ${reads[0]} ${reads[1]} > ${label}.sam
+        """
+        //#| samtools view -bS - > ${label}.bam
+}
+
+
+

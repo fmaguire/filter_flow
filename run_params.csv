@@ -13,3 +13,12 @@ blastn,megablast_shortword,-task megablast -word_size 34
 blastn,blastn_longword,-task blastn -word_size 7
 blastn,blastn_default,-task blastn -word_size 11
 blastn,blastn_shortword,-task blastn -word_size 15
+bwa,bwa_lowscore_shortword,-T 10 -k 15
+bwa,bwa_defaultscore_shortword,-T 30 -k 15
+bwa,bwa_highscore_shortword,-T 50 -k 15
+bwa,bwa_lowscore_defaultword,-T 10 -k 19
+bwa,bwa_defaultscore_defaultword,-T 30 -k 19
+bwa,bwa_highscore_defaultword,-T 50 -k 19
+bwa,bwa_lowscore_longword,-T 10 -k 21
+bwa,bwa_defaultscore_longword,-T 30 -k 21
+bwa,bwa_highscore_longword,-T 50 -k 21
