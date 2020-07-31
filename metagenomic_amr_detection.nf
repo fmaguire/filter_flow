@@ -181,7 +181,6 @@ process run_bwa_commands {
         """
 }
 
-/*
 // GROOT
 runs_ch.GROOT_params
     .into{ GROOT_db_params; GROOT_run_params }
@@ -211,23 +210,21 @@ process prepare_groot_database {
 
 GROOT_run_params
     .combine( GROOT_input )
-    .combine( GROOT_databases )
+    .combine( GROOT_databases.toList().toList() )
     .set{ GROOT_combined_run_params }
 
-GROOT_run_params.view()
-//
-//process run_groot_commands {
-//    conda "$baseDir/conda_envs/groot.yml"
-//    tag { "GROOT: ${label}" }
-//    publishDir "results/nt/groot", pattern: '*.sam', saveAs: { "${file(it).getSimpleName()}.${file(it).getExtension()}"}
-//
-//    input:
-//        set val(tool), val(label), val(run_params), val(db_params), val(read_label), path(reads), path(groot_db) from GROOT_combined_run_params
-//    output:
-//        file "*.bam" into GROOT_output
-//    script:
-//        """
-//        groot align ${run_params} -i groot_db_${db_params[-2,-1]} -p ${task.cpus} -f ${reads[0]} ${reads[1]} > ${label}.sam
-//        """
-//}
-*/
+process run_groot_commands {
+    conda "$baseDir/conda_envs/groot.yml"
+    tag { "GROOT: ${label}" }
+    publishDir "results/nt/groot", pattern: '*.bam', saveAs: { "${file(it).getSimpleName()}.${file(it).getExtension()}"}
+
+    input:
+        set val(tool), val(label), val(run_params), val(db_params), val(read_label), path(reads), path(groot_db) from GROOT_combined_run_params
+    output:
+        file "*.bam" into GROOT_output
+    script:
+        """
+        groot align ${run_params} -i groot_db_${db_params[-2,-1]} -p ${task.cpus} -f ${reads[0]} ${reads[1]} > ${label}.bam
+        """
+}
+
