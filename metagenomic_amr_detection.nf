@@ -58,11 +58,12 @@ metagenome_fasta.into{ BLASTN_input;
 Channel
     .fromPath(params.run_params_csv)
     .splitCsv(header:true)
-    .map{ row -> tuple(row.tool, row.label, row.run_params) }
+    .map{ row -> tuple(row.tool, row.label, row.run_params, row.db_params) }
     .branch {
         BLASTN_params: it[0] == "blastn"
         BOWTIE2_params: it[0] == "bowtie2"
         BWA_params: it[0] == "bwa"
+        GROOT_params: it[0] == "groot"
      }
     .set{ runs_ch }
 
@@ -92,12 +93,14 @@ process prepare_BLASTN_database {
 // filter params to just blastn and combine params with input/db to get all
 // iterations of BLASTN params invocation to run correctly
 runs_ch.BLASTN_params
+    .map{ it -> it[0,1,2] }
     .combine( BLASTN_input )
     .combine( BLASTN_database.toList() )
     .set{ BLASTN_run_params }
 
 //BLASTN defaults: https://www.ncbi.nlm.nih.gov/books/NBK279684/table/appendices.T.blastn_application_options/
 process run_BLASTN_commands {
+    tag { "BLASTN: ${label}" }
     publishDir "results/nt/blastn", pattern: '*.out6', saveAs: { "${file(it).getSimpleName()}.${file(it).getExtension()}"}
     conda "$baseDir/conda_envs/blast.yml"
     input:
@@ -125,11 +128,13 @@ process prepare_bowtie2_index {
 
 // filter to just bowtie2
 runs_ch.BOWTIE2_params
+    .map{ it -> it[0,1,2] }
     .combine( BOWTIE2_input )
     .combine( BOWTIE2_database.toList() )
     .set{ BOWTIE2_run_params }
 
 process run_bowtie2_commands {
+    tag { "BOWTIE2: ${label}" }
     publishDir "results/nt/bowtie2", pattern: '*.bam', saveAs: { "${file(it).getSimpleName()}.${file(it).getExtension()}"}
     conda "$baseDir/conda_envs/bowtie2.yml"
     input:
@@ -138,9 +143,8 @@ process run_bowtie2_commands {
         file '*.sam' into BOWTIE2_output
     script:
         """
-        bowtie2 -x amr.bowtie2.db $run_params -p ${task.cpus} -1 ${reads[0]} -2 ${reads[1]} > {label}.sam
+        bowtie2 -x amr.bowtie2.db $run_params -p ${task.cpus} -1 ${reads[0]} -2 ${reads[1]} > ${label}.sam
         """
-        //#| samtools view -bS - > ${label}.bam
 }
 
 
@@ -158,12 +162,14 @@ process prepare_bwa_index {
 }
 
 runs_ch.BWA_params
+    .map{ it -> it[0,1,2] }
     .combine( BWA_input )
     .combine( BWA_database.toList() )
     .set{ BWA_run_params }
 
 process run_bwa_commands {
-    publishDir "results/nt/bowtie2", pattern: '*.bam', saveAs: { "${file(it).getSimpleName()}.${file(it).getExtension()}"}
+    tag { "BWA-MEM: ${label}" }
+    publishDir "results/nt/bowtie2", pattern: '*.sam', saveAs: { "${file(it).getSimpleName()}.${file(it).getExtension()}"}
     conda "$baseDir/conda_envs/bwa.yml"
     input:
         set val(tool), val(label), val(run_params), val(read_label), path(reads), path(bwa_index) from BWA_run_params
@@ -173,8 +179,55 @@ process run_bwa_commands {
         """
         bwa mem -t ${task.cpus} $run_params amr.bwa.db ${reads[0]} ${reads[1]} > ${label}.sam
         """
-        //#| samtools view -bS - > ${label}.bam
 }
 
+/*
+// GROOT
+runs_ch.GROOT_params
+    .into{ GROOT_db_params; GROOT_run_params }
 
+// only get unique db parameters
+GROOT_db_params
+    .map{ it -> it[3] }
+    .unique()
+    .set{ GROOT_db_params_unique }
 
+process prepare_groot_database {
+    tag { "!GROOT_db: ${db_params}" }
+    conda "$baseDir/conda_envs/groot.yml"
+    input:
+        path amr_ref from params.amr_database
+        val db_params from GROOT_db_params_unique
+    output:
+        path 'groot_db_*' into GROOT_databases
+    script:
+        """
+        mkdir clustered_amr_db;
+        vsearch --cluster_size $amr_ref --id 0.90 --msaout MSA.tmp;
+        awk '!a[\$0]++ {of="clustered_amr_db/cluster-" ++fc ".msa"; print \$0 >> of ; close(of)}' RS= ORS="\\n\\n" MSA.tmp && rm MSA.tmp;
+        groot index ${db_params} -m clustered_amr_db -i groot_db_${db_params[-2,-1]} -w ${params.read_length};
+        """
+}
+
+GROOT_run_params
+    .combine( GROOT_input )
+    .combine( GROOT_databases )
+    .set{ GROOT_combined_run_params }
+
+GROOT_run_params.view()
+//
+//process run_groot_commands {
+//    conda "$baseDir/conda_envs/groot.yml"
+//    tag { "GROOT: ${label}" }
+//    publishDir "results/nt/groot", pattern: '*.sam', saveAs: { "${file(it).getSimpleName()}.${file(it).getExtension()}"}
+//
+//    input:
+//        set val(tool), val(label), val(run_params), val(db_params), val(read_label), path(reads), path(groot_db) from GROOT_combined_run_params
+//    output:
+//        file "*.bam" into GROOT_output
+//    script:
+//        """
+//        groot align ${run_params} -i groot_db_${db_params[-2,-1]} -p ${task.cpus} -f ${reads[0]} ${reads[1]} > ${label}.sam
+//        """
+//}
+*/
