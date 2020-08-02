@@ -9,6 +9,22 @@
         channels for the tools that need input formatted that way.
 
 */
+
+//// download CARD database
+//process get_CARD {
+//	input:
+//        val card_canonical_version from params.card_version
+//	output:
+//		path "card/nucleotide_fasta_protein_homolog_model.fasta" into amr_nucl
+//		path "card/protein_fasta_protein_homolog_model.fasta" into amr_prot
+//	script:
+//		"""
+//        wget -P canonical_${card_canonical_version} https://card.mcmaster.ca/download/0/broadstreet-v{params.canonical_version}.tar.bz2 2>&1 >> {log}
+//        tar -C canonical_${card_canonical_version} -xvf canonical_${card_canonical_version}/broadstreet-v${card_canonical_version}.tar.bz2",
+//		"""
+//}
+
+
 // get the input read pairs
 Channel
     .fromFilePairs( params.reads_pe )
@@ -64,13 +80,13 @@ Channel
         BOWTIE2_params: it[0] == "bowtie2"
         BWA_params: it[0] == "bwa"
         GROOT_params: it[0] == "groot"
+		ARIBA_params: it[0] == "ariba"
      }
     .set{ runs_ch }
 
 
 /*
-
-    Nucleotide Methods:
+Nucleotide Methods:
         - BLASTN
         - bowtie2
         - BWA-MEM
@@ -81,7 +97,7 @@ Channel
 process prepare_BLASTN_database {
     conda "$baseDir/conda_envs/blast.yml"
     input:
-        path amr_ref from params.amr_database
+        path amr_ref from params.amr_nucl_database
     output:
         path 'amr.blastn.db.*' into BLASTN_database
     script:
@@ -117,7 +133,7 @@ process run_BLASTN_commands {
 process prepare_bowtie2_index {
     conda "$baseDir/conda_envs/bowtie2.yml"
     input:
-        path amr_ref from params.amr_database
+        path amr_ref from params.amr_nucl_database
     output:
         path 'amr.bowtie2.db*' into BOWTIE2_database
     script:
@@ -152,7 +168,7 @@ process run_bowtie2_commands {
 process prepare_bwa_index {
     conda "$baseDir/conda_envs/bwa.yml"
     input:
-        path amr_ref from params.amr_database
+        path amr_ref from params.amr_nucl_database
     output:
         path 'amr.bwa.db*' into BWA_database
     script:
@@ -195,7 +211,7 @@ process prepare_groot_database {
     tag { "!GROOT_db: ${db_params}" }
     conda "$baseDir/conda_envs/groot.yml"
     input:
-        path amr_ref from params.amr_database
+        path amr_ref from params.amr_nucl_database
         val db_params from GROOT_db_params_unique
     output:
         path 'groot_db_*' into GROOT_databases
@@ -228,3 +244,41 @@ process run_groot_commands {
         """
 }
 
+// ARIBA 
+process prepare_ariba_database {
+    //conda "$baseDir/conda_envs/ariba.yml"
+    input:
+        val amr_db_version from params.amr_database_version
+    output:
+        path 'ariba_amr_db' into ARIBA_database
+
+    // test at awk live generation for increase portability to other databases in future
+    // cat ${amr_ref} | awk -F'|' '/^>/ {split(\$6,name," "); split(\$5,aro,":"); output_str= sprintf("%s.%s.%s.%s.%s\\t1\\t0\\t.\\t.\\t%s", name[1], aro[2], $2, $4, NR, name[1]); print output_str}' > ariba_meta.tsv
+
+    script:
+        """
+        ariba getref --version ${amr_db_version} card card_database
+		ariba prepareref -f card_database.fa -m card_database.tsv ariba_amr_db
+        """
+}
+
+runs_ch.ARIBA_params
+    .map{ it -> it[0,1,2] }
+    .combine( ARIBA_input )
+    .combine( ARIBA_database )
+    .set{ ARIBA_run_params }
+
+
+process run_ariba_comamnds {
+    //conda "$baseDir/conda_envs/ariba.yml"
+    tag{ "ARIBA: ${label}" }
+	publishDir "results/nt/ariba", pattern: "*_output"
+	input:
+        set val(tool), val(label), val(run_params), val(read_label), path(reads), path(ariba_db) from ARIBA_run_params
+	output:	
+		path "*_output" into ARIBA_output
+	script:
+		"""
+		ariba run --noclean ${run_params} ${ariba_db} ${reads[0]} ${reads[1]} ${label}_output 
+		"""
+}

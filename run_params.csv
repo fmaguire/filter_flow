@@ -1,30 +1,33 @@
 tool,label,run_params,db_params
-bowtie2,endtoend_veryfast,--very-fast,
-bowtie2,endtoend_fast,--fast,
-bowtie2,default,--sensitive,
-bowtie2,endtoend_verysensitive,--very-sensitive,
-bowtie2,local_veryfast,--very-fast-local,
-bowtie2,local_fast,--fast-local,
-bowtie2,local_sensitive,--sensitive-local,
-bowtie2,local_verysensitive,--very-sensitive-local,
-blastn,megablast_longword,-task megablast -word_size 25,
-blastn,megablast_default,-task megablast -word_size 28,
-blastn,megablast_shortword,-task megablast -word_size 31,
-blastn,blastn_longword,-task blastn -word_size 9,
-blastn,blastn_default,-task blastn -word_size 11,
-blastn,blastn_shortword,-task blastn -word_size 13,
-bwa,lowscore_shortword,-T 10 -k 15,
-bwa,defaultscore_shortword,-T 30 -k 15,
-bwa,highscore_shortword,-T 50 -k 15,
-bwa,lowscore_defaultword,-T 10 -k 19,
-bwa,defaultscore_defaultword,-T 30 -k 19,
-bwa,highscore_defaultword,-T 50 -k 19,
-bwa,lowscore_longword,-T 10 -k 21,
-bwa,defaultscore_longword,-T 30 -k 21,
-bwa,highscore_longword,-T 50 -k 21,
-groot,lowk_lowthresh,--contThresh 0.90,--kmerSize 26
-groot,defaultk_lowthresh,--contThresh 0.90,--kmerSize 31
-groot,highk_lowthresh,--contThresh 0.90,--kmerSize 36
-groot,lowk_defaultthresh,--contThresh 0.99,--kmerSize 26
-groot,defaultk_defaultthresh,--contThresh 0.99,--kmerSize 31
-groot,highk_defaultthresh,--contThresh 0.99,--kmerSize 36
+bowtie2,bowtie2_endtoend_veryfast,--very-fast,
+bowtie2,bowtie2_endtoend_fast,--fast,
+bowtie2,bowtie2_default,--sensitive,
+bowtie2,bowtie2_endtoend_verysensitive,--very-sensitive,
+bowtie2,bowtie2_local_veryfast,--very-fast-local,
+bowtie2,bowtie2_local_fast,--fast-local,
+bowtie2,bowtie2_local_sensitive,--sensitive-local,
+bowtie2,bowtie2_local_verysensitive,--very-sensitive-local,
+blastn,blastn_megablast_longword,-task megablast -word_size 25,
+blastn,blastn_megablast_default,-task megablast -word_size 28,
+blastn,blastn_megablast_shortword,-task megablast -word_size 31,
+blastn,blastn_blastn_longword,-task blastn -word_size 9,
+blastn,blastn_blastn_default,-task blastn -word_size 11,
+blastn,blastn_blastn_shortword,-task blastn -word_size 13,
+bwa,bwa_lowscore_shortword,-T 10 -k 15,
+bwa,bwa_defaultscore_shortword,-T 30 -k 15,
+bwa,bwa_highscore_shortword,-T 50 -k 15,
+bwa,bwa_lowscore_defaultword,-T 10 -k 19,
+bwa,bwa_defaultscore_defaultword,-T 30 -k 19,
+bwa,bwa_highscore_defaultword,-T 50 -k 19,
+bwa,bwa_lowscore_longword,-T 10 -k 21,
+bwa,bwa_defaultscore_longword,-T 30 -k 21,
+bwa,bwa_highscore_longword,-T 50 -k 21,
+groot,groot_lowk_lowthresh,--contThresh 0.90,--kmerSize 26
+groot,groot_defaultk_lowthresh,--contThresh 0.90,--kmerSize 31
+groot,groot_highk_lowthresh,--contThresh 0.90,--kmerSize 36
+groot,groot_lowk_defaultthresh,--contThresh 0.99,--kmerSize 26
+groot,groot_defaultk_defaultthresh,--contThresh 0.99,--kmerSize 31
+groot,groot_highk_defaultthresh,--contThresh 0.99,--kmerSize 36
+ariba,ariba_lownucmerid,--nucmer_min_id 80,
+ariba,ariba_defaultnucmerid,--nucmer_min_id 90,
+ariba,ariba_highnucmerid,--nucmer_min_id 95,
