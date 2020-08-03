@@ -1,0 +1,8 @@
+name: groot
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - groot=1.1.2
+  - vsearch=2.15.0

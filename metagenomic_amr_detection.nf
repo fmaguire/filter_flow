@@ -48,8 +48,8 @@ process build_single_ended {
         cat ${reads[0]} ${reads[1]} > metagenome_se.fastq
         """
 }
-metagenome_fastq_se.into { placeholder_input; 
-                           placeholder2_input}
+metagenome_fastq_se.into{ aminoacid_conversion;
+                         DIAMONDBLASTX_input}
 
 // generate fasta reads and load into channels
 process convert_to_fasta {
@@ -63,8 +63,27 @@ process convert_to_fasta {
         """
 }
 metagenome_fasta.into{ BLASTN_input; 
-                      BLASTX_input}
+                       BLASTX_input}
 
+
+// convert input metagenome to amino acid orfs using ORFM
+process convert_to_amino_acid {
+    tag{ "ORFM: amino acid query generation" }
+    conda "$baseDir/conda_envs/orfm.yml"
+    input:
+        path(reads_se) from aminoacid_conversion
+    output:
+        path "metagenome_read_orfs.faa" into metagenome_aminoacids
+    // 60 nucleotides => 30 amino acids
+    shell:
+        """
+        orfm -m 60 ${reads_se} > metagenome_read_orfs.faa
+        """
+}
+metagenome_aminoacids.into { BLASTP_input;
+                             DIAMONDBLASTP_input;
+                             HMMSEARCHPROTEIN_input;
+                             MMSEQSPROTEIN_input }
 
 /* 
         Parse run parameter files for sweep settings to use in 
@@ -77,19 +96,24 @@ Channel
     .map{ row -> tuple(row.tool, row.label, row.run_params, row.db_params) }
     .branch {
         BLASTN_params: it[0] == "blastn"
+        BLASTX_params: it[0] == "blastx"
         BOWTIE2_params: it[0] == "bowtie2"
         BWA_params: it[0] == "bwa"
         GROOT_params: it[0] == "groot"
 		ARIBA_params: it[0] == "ariba"
+        DIAMONDBLASTX_params: it[0] == 'diamond-blastx'
+        DIAMONDBLASTP_params: it[0] == 'diamond-blastp'
      }
     .set{ runs_ch }
 
 
 /*
-Nucleotide Methods:
+Nucleotide Methods vs Nucleotide database:
         - BLASTN
         - bowtie2
         - BWA-MEM
+        - groot
+        - ariba
 
 */
 
@@ -282,3 +306,129 @@ process run_ariba_comamnds {
 		ariba run --noclean ${run_params} ${ariba_db} ${reads[0]} ${reads[1]} ${label}_output 
 		"""
 }
+
+//// HMMSearch nucleotide
+//process prepare_hmmsearch_nt_database {
+//    conda "$baseDir/conda_envs/hmmsearch.yml"
+//    input:
+//        path amr_ref from params.amr_nucl_database
+//        val db_params from GROOT_db_params_unique
+//    output:
+//        path 'groot_db_*' into GROOT_databases
+// 
+//
+//}
+//
+//
+
+
+/*
+Nucleotide Methods vs Protein database:
+        - BLASTX
+        - DIAMONDBLASTX
+        - PALADIN
+*/
+
+
+// BLASTX
+process prepare_BLASTX_database {
+    conda "$baseDir/conda_envs/blast.yml"
+    input:
+        path amr_ref from params.amr_prot_database
+    output:
+        path 'amr.blastx.db.*' into BLASTX_database
+    script:
+        """
+        makeblastdb -dbtype prot -in $amr_ref -out amr.blastx.db
+        """
+}
+
+// filter params to just blastx and combine params with input/db to get all
+// iterations of BLASTX params invocation to run correctly
+runs_ch.BLASTX_params
+    .map{ it -> it[0,1,2] }
+    .combine( BLASTX_input )
+    .combine( BLASTX_database.toList() )
+    .set{ BLASTX_run_params }
+
+//BLASTX defaults: https://www.ncbi.nlm.nih.gov/books/NBK279684/table/appendices.T.blastx_application_options/
+process run_BLASTX_commands {
+    tag { "BLASTX: ${label}" }
+    publishDir "results/nt_to_aa/blastx", pattern: '*.out6', saveAs: { "${file(it).getSimpleName()}.${file(it).getExtension()}"}
+    conda "$baseDir/conda_envs/blast.yml"
+    input:
+        set val(tool), val(label), val(run_params), path(read_fasta), path(blastx_database) from BLASTX_run_params
+    output:
+        file '*.out6' into BLASTX_output
+    script:
+        """
+        blastx -query $read_fasta $run_params -num_threads ${task.cpus} -db amr.blastx.db -outfmt 6 > ${label}.out6
+        """
+} 
+
+
+// DIAMONDBLASTX
+process prepare_DIAMOND_databases {
+    conda "$baseDir/conda_envs/diamond.yml"
+    input:
+        path amr_ref from params.amr_prot_database
+    output:
+        path 'amr.diamond.db.*' into DIAMONDBLASTX_database, DIAMONDBLASTP_database
+    script:
+        """
+        diamond makedb --in $amr_ref --db amr.diamond.db
+        """
+}
+
+// filter params to just blastx and combine params with input/db to get all
+// iterations of BLASTX params invocation to run correctly
+runs_ch.DIAMONDBLASTX_params
+    .map{ it -> it[0,1,2] }
+    .combine( DIAMONDBLASTX_input )
+    .combine( DIAMONDBLASTX_database.toList() )
+    .set{ DIAMONDBLASTX_run_params }
+
+//DIAMOND BLASTX defaults: https://www.ncbi.nlm.nih.gov/books/NBK279684/table/appendices.T.blastx_application_options/
+process run_DIAMONDBLASTX_commands {
+    tag { "DIAMONDBLASTX: ${label}" }
+    publishDir "results/nt_to_aa/diamond-blastx", pattern: '*.out6', saveAs: { "${file(it).getSimpleName()}.${file(it).getExtension()}"}
+    conda "$baseDir/conda_envs/diamond.yml"
+    input:
+        set val(tool), val(label), val(run_params), path(reads_se), path(diamond_database) from DIAMONDBLASTX_run_params
+    output:
+        file '*.out6' into DIAMONDBLASTX_output
+    script:
+        """
+        diamond blastx -p ${task.cpus} --max-target-seqs 1 --db ${diamond_database} --outfmt 6 --out ${label}.out6 ${run_params} -q ${reads_se}
+        """
+} 
+
+
+/*
+Protein Methods vs Protein database:
+        - BLASTP
+        - DIAMONDBLASTP
+        - MMSEQS
+*/
+
+
+runs_ch.DIAMONDBLASTP_params
+    .map{ it -> it[0,1,2] }
+    .combine( DIAMONDBLASTP_input )
+    .combine( DIAMONDBLASTP_database.toList() )
+    .set{ DIAMONDBLASTP_run_params }
+
+//DIAMOND BLASTX defaults: https://www.ncbi.nlm.nih.gov/books/NBK279684/table/appendices.T.blastx_application_options/
+process run_DIAMONDBLASTP_commands {
+    tag { "DIAMONDBLASTP: ${label}" }
+    publishDir "results/aa/diamond-blastp", pattern: '*.out6', saveAs: { "${file(it).getSimpleName()}.${file(it).getExtension()}"}
+    conda "$baseDir/conda_envs/diamond.yml"
+    input:
+        set val(tool), val(label), val(run_params), path(read_aa_fasta), path(diamond_database) from DIAMONDBLASTP_run_params
+    output:
+        file '*.out6' into DIAMONDBLASTP_output
+    script:
+        """
+        diamond blastp -p ${task.cpus} --max-target-seqs 1 --db ${diamond_database} --outfmt 6 --out ${label}.out6 ${run_params} -q ${read_aa_fasta}
+        """
+} 
