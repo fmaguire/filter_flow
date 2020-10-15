@@ -49,7 +49,8 @@ process build_single_ended {
         """
 }
 metagenome_fastq_se.into{ aminoacid_conversion;
-                         DIAMONDBLASTX_input}
+                         DIAMOND_BLASTX_input,
+                         MMSEQS_BLASTX_input}
 
 // generate fasta reads and load into channels
 process convert_to_fasta {
@@ -81,9 +82,9 @@ process convert_to_amino_acid {
         """
 }
 metagenome_aminoacids.into { BLASTP_input;
-                             DIAMONDBLASTP_input;
+                             DIAMOND_BLASTP_input;
                              HMMSEARCHPROTEIN_input;
-                             MMSEQSPROTEIN_input }
+                             MMSEQSBLASTP_input }
 
 /* 
         Parse run parameter files for sweep settings to use in 
@@ -97,12 +98,13 @@ Channel
     .branch {
         BLASTN_params: it[0] == "blastn"
         BLASTX_params: it[0] == "blastx"
+        BLASTP_params: it[0] == "blastp"
         BOWTIE2_params: it[0] == "bowtie2"
         BWA_params: it[0] == "bwa"
         GROOT_params: it[0] == "groot"
 		ARIBA_params: it[0] == "ariba"
-        DIAMONDBLASTX_params: it[0] == 'diamond-blastx'
-        DIAMONDBLASTP_params: it[0] == 'diamond-blastp'
+        DIAMOND_BLASTX_params: it[0] == 'diamond-blastx'
+        DIAMOND_BLASTP_params: it[0] == 'diamond-blastp'
      }
     .set{ runs_ch }
 
@@ -141,15 +143,15 @@ runs_ch.BLASTN_params
 //BLASTN defaults: https://www.ncbi.nlm.nih.gov/books/NBK279684/table/appendices.T.blastn_application_options/
 process run_BLASTN_commands {
     tag { "BLASTN: ${label}" }
-    publishDir "results/nt/blastn", pattern: '*.out6', saveAs: { "${file(it).getSimpleName()}.${file(it).getExtension()}"}
+    publishDir "results/nt/blastn", pattern: "${label}.out6", mode: "copy"
     conda "$baseDir/conda_envs/blast.yml"
     input:
         set val(tool), val(label), val(run_params), path(read_fasta), path(blastn_database) from BLASTN_run_params
     output:
-        file '*.out6' into BLASTN_output
+        path "${label}.out6" into BLASTN_output
     script:
         """
-        blastn -query $read_fasta $run_params -num_threads ${task.cpus} -db amr.blastn.db -outfmt 6 > ${label}.out6
+        blastn -max_target_seqs 1 -query $read_fasta $run_params -num_threads ${task.cpus} -db amr.blastn.db -outfmt 6 > ${label}.out6
         """
 }
 
@@ -175,12 +177,12 @@ runs_ch.BOWTIE2_params
 
 process run_bowtie2_commands {
     tag { "BOWTIE2: ${label}" }
-    publishDir "results/nt/bowtie2", pattern: '*.bam', saveAs: { "${file(it).getSimpleName()}.${file(it).getExtension()}"}
+    publishDir "results/nt/bowtie2", pattern: "${label}.sam", mode: 'copy'
     conda "$baseDir/conda_envs/bowtie2.yml"
     input:
         set val(tool), val(label), val(run_params), val(read_label), path(reads), path(bowtie2_index) from BOWTIE2_run_params
     output:
-        file '*.sam' into BOWTIE2_output
+        path "${label}.sam" into BOWTIE2_output
     script:
         """
         bowtie2 -x amr.bowtie2.db $run_params -p ${task.cpus} -1 ${reads[0]} -2 ${reads[1]} > ${label}.sam
@@ -209,12 +211,12 @@ runs_ch.BWA_params
 
 process run_bwa_commands {
     tag { "BWA-MEM: ${label}" }
-    publishDir "results/nt/bowtie2", pattern: '*.sam', saveAs: { "${file(it).getSimpleName()}.${file(it).getExtension()}"}
+    publishDir "results/nt/bowtie2", pattern: "${label}.sam", mode: "copy"
     conda "$baseDir/conda_envs/bwa.yml"
     input:
         set val(tool), val(label), val(run_params), val(read_label), path(reads), path(bwa_index) from BWA_run_params
     output:
-        file '*.sam' into BWA_output
+        path "${label}.sam" into BWA_output
     script:
         """
         bwa mem -t ${task.cpus} $run_params amr.bwa.db ${reads[0]} ${reads[1]} > ${label}.sam
@@ -256,12 +258,12 @@ GROOT_run_params
 process run_groot_commands {
     conda "$baseDir/conda_envs/groot.yml"
     tag { "GROOT: ${label}" }
-    publishDir "results/nt/groot", pattern: '*.bam', saveAs: { "${file(it).getSimpleName()}.${file(it).getExtension()}"}
+    publishDir "results/nt/groot", pattern: "${label}.bam", mode: "copy"
 
     input:
         set val(tool), val(label), val(run_params), val(db_params), val(read_label), path(reads), path(groot_db) from GROOT_combined_run_params
     output:
-        file "*.bam" into GROOT_output
+        path "${label}.bam" into GROOT_output
     script:
         """
         groot align ${run_params} -i groot_db_${db_params[-2,-1]} -p ${task.cpus} -f ${reads[0]} ${reads[1]} > ${label}.bam
@@ -296,16 +298,25 @@ runs_ch.ARIBA_params
 process run_ariba_comamnds {
     //conda "$baseDir/conda_envs/ariba.yml"
     tag{ "ARIBA: ${label}" }
-	publishDir "results/nt/ariba", pattern: "*_output"
+	publishDir "results/nt/ariba", pattern: "${label}_output", mode: "copy"
 	input:
         set val(tool), val(label), val(run_params), val(read_label), path(reads), path(ariba_db) from ARIBA_run_params
 	output:	
-		path "*_output" into ARIBA_output
+		path "${label}_output" into ARIBA_output
 	script:
 		"""
 		ariba run --noclean ${run_params} ${ariba_db} ${reads[0]} ${reads[1]} ${label}_output 
 		"""
 }
+
+// BIOBLOOM (k-mer/bloom filter model in place of CLARK/KRAKEN
+
+
+
+// CLARK
+
+
+
 
 //// HMMSearch nucleotide
 //process prepare_hmmsearch_nt_database {
@@ -331,15 +342,15 @@ Nucleotide Methods vs Protein database:
 
 
 // BLASTX
-process prepare_BLASTX_database {
+process prepare_BLASTX_BLASTP_database {
     conda "$baseDir/conda_envs/blast.yml"
     input:
         path amr_ref from params.amr_prot_database
     output:
-        path 'amr.blastx.db.*' into BLASTX_database
+        path 'amr.prot.db.*' into BLASTX_database, BLASTP_database
     script:
         """
-        makeblastdb -dbtype prot -in $amr_ref -out amr.blastx.db
+        makeblastdb -dbtype prot -in $amr_ref -out amr.prot.db
         """
 }
 
@@ -354,26 +365,26 @@ runs_ch.BLASTX_params
 //BLASTX defaults: https://www.ncbi.nlm.nih.gov/books/NBK279684/table/appendices.T.blastx_application_options/
 process run_BLASTX_commands {
     tag { "BLASTX: ${label}" }
-    publishDir "results/nt_to_aa/blastx", pattern: '*.out6', saveAs: { "${file(it).getSimpleName()}.${file(it).getExtension()}"}
+    publishDir "results/nt_to_aa/blastx", pattern: "${label}.out6", mode: "copy"
     conda "$baseDir/conda_envs/blast.yml"
     input:
         set val(tool), val(label), val(run_params), path(read_fasta), path(blastx_database) from BLASTX_run_params
     output:
-        file '*.out6' into BLASTX_output
+        path "${label}.out6" into BLASTX_output
     script:
         """
-        blastx -query $read_fasta $run_params -num_threads ${task.cpus} -db amr.blastx.db -outfmt 6 > ${label}.out6
+        blastx -max_target_seqs -query $read_fasta $run_params -num_threads ${task.cpus} -db amr.prot.db -outfmt 6 > ${label}.out6
         """
 } 
 
 
-// DIAMONDBLASTX
+// DIAMOND_BLASTX
 process prepare_DIAMOND_databases {
     conda "$baseDir/conda_envs/diamond.yml"
     input:
         path amr_ref from params.amr_prot_database
     output:
-        path 'amr.diamond.db.*' into DIAMONDBLASTX_database, DIAMONDBLASTP_database
+        path 'amr.diamond.db.*' into DIAMOND_BLASTX_database, DIAMOND_BLASTP_database
     script:
         """
         diamond makedb --in $amr_ref --db amr.diamond.db
@@ -382,26 +393,61 @@ process prepare_DIAMOND_databases {
 
 // filter params to just blastx and combine params with input/db to get all
 // iterations of BLASTX params invocation to run correctly
-runs_ch.DIAMONDBLASTX_params
+runs_ch.DIAMOND_BLASTX_params
     .map{ it -> it[0,1,2] }
-    .combine( DIAMONDBLASTX_input )
-    .combine( DIAMONDBLASTX_database.toList() )
-    .set{ DIAMONDBLASTX_run_params }
+    .combine( DIAMOND_BLASTX_input )
+    .combine( DIAMOND_BLASTX_database.toList() )
+    .set{ DIAMOND_BLASTX_run_params }
 
 //DIAMOND BLASTX defaults: https://www.ncbi.nlm.nih.gov/books/NBK279684/table/appendices.T.blastx_application_options/
-process run_DIAMONDBLASTX_commands {
-    tag { "DIAMONDBLASTX: ${label}" }
-    publishDir "results/nt_to_aa/diamond-blastx", pattern: '*.out6', saveAs: { "${file(it).getSimpleName()}.${file(it).getExtension()}"}
+process run_DIAMOND_BLASTX_commands {
+    tag { "DIAMOND_BLASTX: ${label}" }
+    publishDir "results/nt_to_aa/diamond-blastx", pattern: "${label}.out6", mode: "copy"
     conda "$baseDir/conda_envs/diamond.yml"
     input:
-        set val(tool), val(label), val(run_params), path(reads_se), path(diamond_database) from DIAMONDBLASTX_run_params
+        set val(tool), val(label), val(run_params), path(reads_se), path(diamond_database) from DIAMOND_BLASTX_run_params
     output:
-        file '*.out6' into DIAMONDBLASTX_output
+        path "${label}.out6" into DIAMOND_BLASTX_output
     script:
         """
         diamond blastx -p ${task.cpus} --max-target-seqs 1 --db ${diamond_database} --outfmt 6 --out ${label}.out6 ${run_params} -q ${reads_se}
         """
 } 
+
+// * MMSEQS2
+process prepare_MMSEQS_databases {
+    conda "$baseDir/conda_envs/mmseqs2.yml"
+    input:
+        path amr_ref from params.amr_prot_database
+    output:
+        set path('amr.mmseqs.db*'), path("mmseqs_tmp") into (MMSEQS_BLASTX_database, MMSEQS_BLASTP_database)
+    script:
+        """
+        mmseqs createdb ${amr_ref} amr.mmseqs.db 
+        mmseqs index amr.mmseqs.db mmseqs_tmp
+        """
+}
+
+runs_ch.MMSEQS_BLASTX_params
+    .map{ it -> it[0,1,2] }
+    .combine( MMSEQS_BLASTX_input )
+    .combine( MMSEQS_BLASTX_database.toList() )
+    .set{ MMSEQS_BLASTX_run_params }
+
+
+process run_MMSEQS_BLASTX_commands {
+    tag { "MMSEQS_BLASTX: ${label}" }
+    publishDir: "results/nt_to_aa/mmseqs_blastx", pattern: "", mode: "copy"
+    conda: "$baseDir/conda_envs/mmseqs2.yml"
+    input:
+        set val(tool), val(label), val(run_params), path(reads_se), path(mmseqs_database), path(mmseqs_tmp) from MMSEQS_BLASTX_run_params
+    output: 
+        asd
+    script:
+        """
+        mmseqs easy-search --threads ${task.cpus} ${run_params} ${read_aa_fasta} ${mmseqs_database} ${mmseqs_tmp}
+        """
+}
 
 
 /*
@@ -411,24 +457,68 @@ Protein Methods vs Protein database:
         - MMSEQS
 */
 
-
+// * DIAMOND-BLASTP
+// database is already generated from previous diamond invocation
 runs_ch.DIAMONDBLASTP_params
     .map{ it -> it[0,1,2] }
     .combine( DIAMONDBLASTP_input )
     .combine( DIAMONDBLASTP_database.toList() )
     .set{ DIAMONDBLASTP_run_params }
 
-//DIAMOND BLASTX defaults: https://www.ncbi.nlm.nih.gov/books/NBK279684/table/appendices.T.blastx_application_options/
 process run_DIAMONDBLASTP_commands {
     tag { "DIAMONDBLASTP: ${label}" }
-    publishDir "results/aa/diamond-blastp", pattern: '*.out6', saveAs: { "${file(it).getSimpleName()}.${file(it).getExtension()}"}
+    publishDir "results/aa/diamond-blastp", pattern: "${label}.out6", mode: "copy"
     conda "$baseDir/conda_envs/diamond.yml"
     input:
         set val(tool), val(label), val(run_params), path(read_aa_fasta), path(diamond_database) from DIAMONDBLASTP_run_params
     output:
-        file '*.out6' into DIAMONDBLASTP_output
+        path "${label}.out6" into DIAMONDBLASTP_output
     script:
         """
         diamond blastp -p ${task.cpus} --max-target-seqs 1 --db ${diamond_database} --outfmt 6 --out ${label}.out6 ${run_params} -q ${read_aa_fasta}
         """
 } 
+
+
+// * BLASTP
+runs_ch.BLASTP_params
+    .map{ it -> it[0,1,2] }
+    .combine( BLASTP_input )
+    .combine( BLASTP_database.toList() )
+    .set{ BLASTP_run_params }
+
+//BLASTP defaults: https://www.ncbi.nlm.nih.gov/books/NBK279684/table/appendices.T.blastp_application_options/
+process run_BLASTP_commands {
+    tag { "BLASTP: ${label}" }
+    publishDir "results/aa/blastp", pattern: "${label}.out6", mode: "copy"
+    conda "$baseDir/conda_envs/blast.yml"
+    input:
+        set val(tool), val(label), val(run_params), path(read_aa_fasta), path(blast_database) from BLASTP_run_params
+    output:
+        path "${label}.out6" into BLASTP_output
+    script:
+        """
+        blastp -max_target_seqs 1  -query $read_aa_fasta $run_params -num_threads ${task.cpus} -db amr.prot.db -outfmt 6 > ${label}.out6
+        """
+}
+
+runs_ch.MMSEQS_blastp_params
+    .map{ it -> it[0,1,2] }
+    .combine( MMSEQS_blastp_input )
+    .combine( MMSEQS_blastp_database.toList() )
+    .set{ MMSEQS_blastsp_run_params }
+
+
+process run_MMSEQS_blastp_commands {
+    tag { "MMSEQS: ${label}" }
+    publishDir: "results/aa/mmseqs_blastp", pattern: "", mode: "copy"
+    conda: "$baseDir/conda_envs/mmseqs2.yml"
+    input:
+        set val(tool), val(label), val(run_params), path(read_aa_fasta), path(mmseqs_database), path(mmseqs_tmp) from MMSEQS_blastp_run_params
+    output: 
+        asd
+    script:
+        """
+        mmseqs easy-search --threads ${task.cpus} ${read_aa_fasta} ${mmseqs_database}
+        """
+}
