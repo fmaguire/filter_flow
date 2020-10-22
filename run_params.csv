@@ -50,3 +50,14 @@ diamond-blastp,diamond-blastp_ultrasensitive,--ultra-sensitive,
 blastp,blastp_default,-task blastp,
 blastp,blastp_short,-task blastp-short,
 blastp,blastp_fast,-task blastp-fast,
+kma,kma_default,,-k 16
+kma,kma_high_k,,-k 18 
+kma,kma_low_k,,-k 14
+hmmsearch_nt,hmmsearch_nt_default,,
+paladin,paladin_default,-T 15,
+paladin,paladin_low_score,-T 5,
+paladin,paladin_high_score,-T 25,
+mmseqsblastx,mmseqsblastx_faster,-s 1,
+mmseqsblastx,mmseqsblastx_fast,-s 4,
+mmseqsblastx,mmseqsblastx_default,-s 5.7,
+mmseqsblastx,mmseqsblastx_sensitive,-s 7.5,
