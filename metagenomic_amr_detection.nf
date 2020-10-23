@@ -31,7 +31,8 @@ include { prepare_BLASTN_database; run_BLASTN_commands;
           prepare_GROOT_database; run_GROOT_commands; 
           prepare_ARIBA_database; run_ARIBA_commands;
           prepare_KMA_database; run_KMA_commands;
-          prepare_HMMSEARCHNT_database; run_HMMSEARCHNT_commands } from './modules/nt.nf'
+          prepare_HMMSEARCHNT_database; run_HMMSEARCHNT_commands;
+        } from './modules/nt.nf'
 
 
 /*
@@ -45,85 +46,22 @@ Nucleotide Methods vs Protein database:
 include { prepare_BLASTX_BLASTP_database; run_BLASTX_commands; 
           prepare_DIAMOND_databases; run_DIAMONDBLASTX_commands; 
           prepare_PALADIN_database; run_PALADIN_commands; 
-          prepare_MMSEQS_database; run_MMSEQSBLASTX_commands} from "./modules/nt_to_aa.nf"
+          prepare_MMSEQS_database; run_MMSEQSBLASTX_commands;
+        } from "./modules/nt_to_aa.nf"
 
 /*
 Protein Methods vs Protein database:
         - BLASTP
         - DIAMONDBLASTP
-        - MMSEQS
+        - MMSEQSBLASTP
+        - HMMSEARCHAA
 */
 
-//include { } from "./modules/aa.nf"
-
-// * DIAMOND-BLASTP
-//// database is already generated from previous diamond invocation
-//runs_ch.DIAMONDBLASTP_params
-//    .map{ it -> it[0,1,2] }
-//    .combine( DIAMONDBLASTP_input )
-//    .combine( DIAMONDBLASTP_database.toList() )
-//    .set{ DIAMONDBLASTP_run_params }
-//
-//process run_DIAMONDBLASTP_commands {
-//    tag { "DIAMONDBLASTP: ${label}" }
-//    publishDir "results/aa/diamond-blastp", pattern: "${label}.out6", mode: "copy"
-//    conda "$baseDir/conda_envs/diamond.yml"
-//    input:
-//        tuple val(tool), val(label), val(run_params), path(read_aa_fasta), path(diamond_database) from DIAMONDBLASTP_run_params
-//    output:
-//        path "${label}.out6" into DIAMONDBLASTP_output
-//    script:
-//        """
-//        diamond blastp -p ${task.cpus} --max-target-seqs 1 --db ${diamond_database} --outfmt 6 --out ${label}.out6 ${run_params} -q ${read_aa_fasta}
-//        """
-//} 
-//
-//
-//// * BLASTP
-//runs_ch.BLASTP_params
-//    .map{ it -> it[0,1,2] }
-//    .combine( BLASTP_input )
-//    .combine( BLASTP_database.toList() )
-//    .set{ BLASTP_run_params }
-//
-////BLASTP defaults: https://www.ncbi.nlm.nih.gov/books/NBK279684/table/appendices.T.blastp_application_options/
-//process run_BLASTP_commands {
-//    tag { "BLASTP: ${label}" }
-//    publishDir "results/aa/blastp", pattern: "${label}.out6", mode: "copy"
-//    conda "$baseDir/conda_envs/blast.yml"
-//    input:
-//        tuple val(tool), val(label), val(run_params), path(read_aa_fasta), path(blast_database) from BLASTP_run_params
-//    output:
-//        path "${label}.out6" into BLASTP_output
-//    script:
-//        """
-//        blastp -max_target_seqs 1  -query $read_aa_fasta $run_params -num_threads ${task.cpus} -db amr.prot.db -outfmt 6 > ${label}.out6
-//        """
-//}
-//
-//runs_ch.MMSEQS_blastp_params
-//    .map{ it -> it[0,1,2] }
-//    .combine( MMSEQS_blastp_input )
-//    .combine( MMSEQS_blastp_database.toList() )
-//    .set{ MMSEQS_blastsp_run_params }
-//
-//
-//process run_MMSEQS_blastp_commands {
-//    tag { "MMSEQS: ${label}" }
-//    publishDir: "results/aa/mmseqs_blastp", pattern: "", mode: "copy"
-//    conda: "$baseDir/conda_envs/mmseqs2.yml"
-//    input:
-//        tuple val(tool), val(label), val(run_params), path(read_aa_fasta), path(mmseqs_database), path(mmseqs_tmp) from MMSEQS_blastp_run_params
-//    output: 
-//        asd
-//    script:
-//        """
-//        mmseqs easy-search --threads ${task.cpus} ${read_aa_fasta} ${mmseqs_database}
-//        """
-//}
-// As all sequences are fragemtns 
-//hmmsearch --fragthresh 1
-
+include { run_BLASTP_commands;  
+          run_DIAMONDBLASTP_commands;
+          run_MMSEQSBLASTP_commands; 
+          prepare_HMMSEARCHAA_database; run_HMMSEARCHAA_commands; 
+          } from "./modules/aa.nf"
 
 
 workflow {
@@ -162,12 +100,14 @@ workflow {
                     BWA_params: it[0] == "bwa"
                     GROOT_params: it[0] == "groot"
     	        	ARIBA_params: it[0] == "ariba"
-                    DIAMONDBLASTX_params: it[0] == 'diamond-blastx'
-                    DIAMONDBLASTP_params: it[0] == 'diamond-blastp'
+                    DIAMONDBLASTX_params: it[0] == 'diamondblastx'
+                    DIAMONDBLASTP_params: it[0] == 'diamondblastp'
                     KMA_params: it[0] == 'kma'
-                    HMMSEARCHNT_params: it[0] == 'hmmsearch_nt'
+                    HMMSEARCHNT_params: it[0] == 'hmmsearchnt'
+                    HMMSEARCHAA_params: it[0] == 'hmmsearchaa'
                     PALADIN_params: it[0] == 'paladin'
                     MMSEQSBLASTX_params: it[0] == 'mmseqsblastx'
+                    MMSEQSBLASTP_params: it[0] == 'mmseqsblastp'
                  }
 
 
@@ -207,65 +147,58 @@ workflow {
     //// BWA-MEM
     BWA_database = prepare_BWA_index ( params.amr_nucl_database ); 
 
-    runs_ch.BWA_params
-        .map{ it -> it[0,1,2] }
-        .combine( fastq_paired_end_reads )
-        .combine( BWA_database.toList() )
-        .set{ BWA_run_params }
+    BWA_run_params = runs_ch.BWA_params
+                        .map{ it -> it[0,1,2] }
+                        .combine( fastq_paired_end_reads )
+                        .combine( BWA_database.toList() )
 
     BWA_output = run_BWA_commands( BWA_run_params );
 
 
     // GROOT
     // only get unique db parameters
-    runs_ch.GROOT_params 
-        .map{ it -> it[3] }
-        .unique()
-        .set{ GROOT_db_params_unique }
+    GROOT_db_params_unique = runs_ch.GROOT_params 
+                                .map{ it -> it[3] }
+                                .unique()
 
     GROOT_databases = prepare_GROOT_database( params.amr_nucl_database,
                                               GROOT_db_params_unique );
-    runs_ch.GROOT_params 
-        .combine( fastq_paired_end_reads )
-        .combine( GROOT_databases.toList().toList() )
-        .set{ GROOT_combined_run_params }
+    GROOT_combined_run_params = runs_ch.GROOT_params 
+                                        .combine( fastq_paired_end_reads )
+                                        .combine( GROOT_databases.toList().toList() )
 
     GROOT_output = run_GROOT_commands( GROOT_combined_run_params );
 
     // ARIBA
     ARIBA_database = prepare_ARIBA_database( params.amr_database_version );
 
-    runs_ch.ARIBA_params
-        .map{ it -> it[0,1,2] }
-        .combine( fastq_paired_end_reads )
-        .combine( ARIBA_database )
-        .set{ ARIBA_run_params }
+    ARIBA_run_params = runs_ch.ARIBA_params
+                            .map{ it -> it[0,1,2] }
+                            .combine( fastq_paired_end_reads )
+                            .combine( ARIBA_database )
 
     ARIBA_output = run_ARIBA_commands( ARIBA_run_params );
 
     // KMA
-    runs_ch.KMA_params
-        .map{ it -> it[1,3] }
-        .set{ KMA_db_params }
+    KMA_db_params = runs_ch.KMA_params
+                        .map{ it -> it[1,3] }
 
     KMA_database = prepare_KMA_database( params.amr_nucl_database,
                                          KMA_db_params );
 
-    runs_ch.KMA_params
-        .combine( fastq_paired_end_reads )
-        .combine( KMA_database.flatten().toList().toList() )
-        .set{ KMA_combined_run_params }
+    KMA_combined_run_params = runs_ch.KMA_params
+                                    .combine( fastq_paired_end_reads )
+                                    .combine( KMA_database.flatten().toList().toList() )
 
     KMA_output = run_KMA_commands( KMA_combined_run_params );
 
     // HMMSEARCHNT
     HMMSEARCHNT_database = prepare_HMMSEARCHNT_database( params.amr_nucl_database ); 
 
-    runs_ch.HMMSEARCHNT_params
-        .map{ it -> it[0,1,2] }
-        .combine( fasta_single_ended_reads )
-        .combine( HMMSEARCHNT_database.toList() )
-        .set{ HMMSEARCHNT_run_params }
+    HMMSEARCHNT_run_params = runs_ch.HMMSEARCHNT_params
+                                .map{ it -> it[0,1,2] }
+                                .combine( fasta_single_ended_reads )
+                                .combine( HMMSEARCHNT_database.toList() )
 
     HMMSEARCHNT_output = run_HMMSEARCHNT_commands( HMMSEARCHNT_run_params );
 
@@ -280,35 +213,33 @@ workflow {
 
 
     // BLASTX
-    BLASTX_database = prepare_BLASTX_BLASTP_database( params.amr_prot_database );
+    BLASTX_BLASTP_database = prepare_BLASTX_BLASTP_database( params.amr_prot_database );
 
     // iterations of BLASTN params invocation to run correctly
     BLASTX_run_params = runs_ch.BLASTX_params
                                 .map{ it -> it[0,1,2] }
                                 .combine( fasta_single_ended_reads )
-                                .combine( BLASTX_database.toList() )
+                                .combine( BLASTX_BLASTP_database.toList() )
 
     BLASTX_output = run_BLASTX_commands( BLASTX_run_params );
     
     // used for both DIAMONDBLASTX and DIAMONDBLASTP
     DIAMOND_database = prepare_DIAMOND_databases( params.amr_prot_database );
 
-    runs_ch.DIAMONDBLASTX_params
-        .map{ it -> it[0,1,2] }
-        .combine( fastq_single_ended_reads )
-        .combine( DIAMOND_database.toList() )
-        .set{ DIAMONDBLASTX_run_params }
+    DIAMONDBLASTX_run_params = runs_ch.DIAMONDBLASTX_params
+                                    .map{ it -> it[0,1,2] }
+                                    .combine( fastq_single_ended_reads )
+                                    .combine( DIAMOND_database.toList() )
 
     DIAMONDBLASTX_output = run_DIAMONDBLASTX_commands( DIAMONDBLASTX_run_params );
 
     // PALADIN
     PALADIN_database = prepare_PALADIN_database( params.amr_prot_database );
 
-    runs_ch.PALADIN_params
-        .map{ it -> it[0,1,2] }
-        .combine( fastq_single_ended_reads )
-        .combine( PALADIN_database.toList() )
-        .set{ PALADIN_run_params }
+    PALADIN_run_params = runs_ch.PALADIN_params
+                            .map{ it -> it[0,1,2] }
+                            .combine( fastq_single_ended_reads )
+                            .combine( PALADIN_database.toList() )
 
     PALADIN_output = run_PALADIN_commands( PALADIN_run_params, 
                                            params.amr_prot_database );
@@ -316,12 +247,56 @@ workflow {
     // MMSEQSBLASTX
     MMSEQS_database = prepare_MMSEQS_database( params.amr_prot_database );
 
-    runs_ch.MMSEQSBLASTX_params
+
+    MMSEQSBLASTX_run_params =runs_ch.MMSEQSBLASTX_params
         .map{ it -> it[0,1,2] }
         .combine( fastq_single_ended_reads )
         .combine( MMSEQS_database.db.toList() )
         .combine( MMSEQS_database.index.toList() )
-        .set{ MMSEQSBLASTX_run_params }
     
     MMSEQSBLASTX_output = run_MMSEQSBLASTX_commands( MMSEQSBLASTX_run_params );
+
+    /*
+    Protein Methods vs Protein database:
+        - BLASTP
+        - DIAMONDBLASTP
+        - MMSEQSBLASTP
+        - HMMSEARCHAA
+    */
+
+    //BLASTP
+    BLASTP_run_params = runs_ch.BLASTP_params
+                            .map{ it -> it[0,1,2] }
+                            .combine( fasta_single_ended_amino_acid )
+                            .combine( BLASTX_BLASTP_database.toList() )
+
+    BLASTP_output = run_BLASTP_commands( BLASTP_run_params );
+
+    //DIAMONDBLASTP
+    DIAMONDBLASTP_run_params = runs_ch.DIAMONDBLASTP_params
+                                    .map{ it -> it[0,1,2] }
+                                    .combine( fasta_single_ended_amino_acid )
+                                    .combine( DIAMOND_database.toList() )
+
+    DIAMONDBLASTP_output = run_DIAMONDBLASTP_commands( DIAMONDBLASTP_run_params );
+
+    //MMSEQSBLASTP
+    MMSEQSBLASTP_run_params = runs_ch.MMSEQSBLASTP_params
+                                    .map{ it -> it[0,1,2] }
+                                    .combine( fasta_single_ended_amino_acid )
+                                    .combine( MMSEQS_database.db.toList() )
+                                    .combine( MMSEQS_database.index.toList() )
+
+    MMSEQSBLASTP_output = run_MMSEQSBLASTP_commands( MMSEQSBLASTP_run_params );
+
+    //HMMSEARCHAA
+    HMMSEARCHAA_database = prepare_HMMSEARCHAA_database( params.amr_prot_database ); 
+
+    HMMSEARCHAA_run_params = runs_ch.HMMSEARCHAA_params
+                                    .map{ it -> it[0,1,2] }
+                                    .combine( fasta_single_ended_amino_acid )
+                                    .combine( HMMSEARCHAA_database.toList() )
+
+    HMMSEARCHAA_output = run_HMMSEARCHAA_commands( HMMSEARCHAA_run_params );
+
 }

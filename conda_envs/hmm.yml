@@ -1,0 +1,11 @@
+name: hmm
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - biopython=1.78
+  - hmmer=3.3.1
+  - mafft=7.471
+  - mmseqs2=12.113e3
+  - vsearch=2.15.0

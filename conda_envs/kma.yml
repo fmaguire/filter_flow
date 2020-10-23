@@ -1,7 +1,7 @@
-name: ariba
+name: kma
 channels:
   - conda-forge
   - bioconda
   - defaults
 dependencies:
-  - ariba=2.14.6
+  - kma=1.3.5

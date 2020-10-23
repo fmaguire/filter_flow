@@ -1,7 +1,9 @@
-name: ariba
+name: paladin
 channels:
   - conda-forge
   - bioconda
   - defaults
 dependencies:
-  - ariba=2.14.6
+  - paladin=1.4.6
+  - samtools=1.11
+
