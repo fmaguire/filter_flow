@@ -28,21 +28,21 @@ All other dependencies are installed automatically.
 
 e.g. 
 
-```params {
+    params {
 
-    reads_pe = "$baseDir/metagenome/test_*{1,2}.fq"
-    
-    run_params_csv = "$baseDir/run_params.csv"
-    
-    amr_nucl_database = "$baseDir/database/nucleotide_fasta_protein_homolog_model.fasta"
+        reads_pe = "$baseDir/metagenome/test_*{1,2}.fq"
+        
+        run_params_csv = "$baseDir/run_params.csv"
+        
+        amr_nucl_database = "$baseDir/database/nucleotide_fasta_protein_homolog_model.fasta"
 
-    amr_prot_database = "$baseDir/database/protein_fasta_protein_homolog_model.fasta"
-    
-    amr_database_version = "3.0.9"
+        amr_prot_database = "$baseDir/database/protein_fasta_protein_homolog_model.fasta"
+        
+        amr_database_version = "3.0.9"
 
-    read_length = 250
+        read_length = 250
 
-}```
+    }
 
 2. You can modify `nextflow.config` to increase the number of CPUs being used and/or details of reported resource usage.
 
@@ -54,21 +54,21 @@ e.g.
 
 Each tool output will be under the requisite folder in `results`:
 
-```results/
-├── aa
-│   ├── blastp
-│   ├── diamond-blastp
-│   ├── hmm
-│   └── mmseqsblastp
-├── nt
-│   ├── ariba
-│   ├── blastn
-│   ├── bowtie2
-│   ├── groot
-│   ├── hmm
-│   └── kma
-└── nt_to_aa
-    ├── blastx
-    ├── diamondblastx
-    ├── mmseqsblastx
-    └── paladin```
+    results/
+    ├── aa
+    │   ├── blastp
+    │   ├── diamond-blastp
+    │   ├── hmm
+    │   └── mmseqsblastp
+    ├── nt
+    │   ├── ariba
+    │   ├── blastn
+    │   ├── bowtie2
+    │   ├── groot
+    │   ├── hmm
+    │   └── kma
+    └── nt_to_aa
+        ├── blastx
+        ├── diamondblastx
+        ├── mmseqsblastx
+        └── paladin```
