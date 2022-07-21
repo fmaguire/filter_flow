@@ -23,7 +23,6 @@ bwa,bwa_lowscore_longword,-T 10 -k 21,
 bwa,bwa_defaultscore_longword,-T 30 -k 21,
 bwa,bwa_highscore_longword,-T 50 -k 21,
 groot,groot_lowk_lowthresh,--contThresh 0.90,--kmerSize 26
-groot,groot_defaultk_lowthresh,--contThresh 0.90,--kmerSize 31
 groot,groot_highk_lowthresh,--contThresh 0.90,--kmerSize 36
 groot,groot_lowk_defaultthresh,--contThresh 0.99,--kmerSize 26
 groot,groot_defaultk_defaultthresh,--contThresh 0.99,--kmerSize 31
