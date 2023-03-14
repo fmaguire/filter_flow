@@ -2,3 +2,8 @@ nextflow
 .nextflow
 results
 work
+conda_envs/NXF*
+data
+filtering.code-workspace
+.nextflow.log*
+resource_usage_stats.txt*

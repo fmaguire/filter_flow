@@ -81,7 +81,7 @@ process prepare_BWA_index {
 
 process run_BWA_commands {
     tag { "BWA-MEM: ${label}" }
-    publishDir "results/nt/bowtie2", pattern: "${label}.sam", mode: "copy"
+    publishDir "results/nt/bwa", pattern: "${label}.sam", mode: "copy"
     conda "$baseDir/conda_envs/bwa.yml"
     input:
         tuple val(tool), val(label), val(run_params), val(read_label), path(reads), path(bwa_index) 
@@ -187,10 +187,12 @@ process run_KMA_commands {
 // HMMSearch nucleotide
 process prepare_HMMSEARCHNT_database {
     conda "$baseDir/conda_envs/hmm.yml"
+	publishDir "results/hmm_cluster_nt", pattern: "*.msa_clean", mode: "copy"
     input:
         path amr_ref 
     output:
-        path 'card90.hmm'
+        path 'card90.hmm', emit: hmm
+		path ("*.msa_clean"), emit: clusters
     script:
         """
         vsearch --cluster_size ${amr_ref} --id 0.90 --msaout MSA.tmp

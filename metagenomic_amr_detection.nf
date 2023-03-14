@@ -63,6 +63,9 @@ include { run_BLASTP_commands;
           prepare_HMMSEARCHAA_database; run_HMMSEARCHAA_commands; 
           } from "./modules/aa.nf"
 
+include { summarize_results;
+		  } from './modules/postprocessing.nf'
+
 
 workflow {
     /*
@@ -170,14 +173,14 @@ workflow {
     GROOT_output = run_GROOT_commands( GROOT_combined_run_params );
 
     // ARIBA
-    ARIBA_database = prepare_ARIBA_database( params.amr_database_version );
+    //ARIBA_database = prepare_ARIBA_database( params.amr_database_version );
 
-    ARIBA_run_params = runs_ch.ARIBA_params
-                            .map{ it -> it[0,1,2] }
-                            .combine( fastq_paired_end_reads )
-                            .combine( ARIBA_database )
+    //ARIBA_run_params = runs_ch.ARIBA_params
+    //                        .map{ it -> it[0,1,2] }
+    //                        .combine( fastq_paired_end_reads )
+    //                        .combine( ARIBA_database )
 
-    ARIBA_output = run_ARIBA_commands( ARIBA_run_params );
+    //ARIBA_output = run_ARIBA_commands( ARIBA_run_params );
 
     // KMA
     KMA_db_params = runs_ch.KMA_params
@@ -194,11 +197,14 @@ workflow {
 
     // HMMSEARCHNT
     HMMSEARCHNT_database = prepare_HMMSEARCHNT_database( params.amr_nucl_database ); 
+	
+	HMMSEARCHNT_hmm = HMMSEARCHNT_database.hmm.collectFile(name: "card90.hmm")
+
 
     HMMSEARCHNT_run_params = runs_ch.HMMSEARCHNT_params
                                 .map{ it -> it[0,1,2] }
                                 .combine( fasta_single_ended_reads )
-                                .combine( HMMSEARCHNT_database.toList() )
+                                .combine( HMMSEARCHNT_hmm )
 
     HMMSEARCHNT_output = run_HMMSEARCHNT_commands( HMMSEARCHNT_run_params );
 
@@ -255,7 +261,7 @@ workflow {
         .combine( MMSEQS_database.index.toList() )
     
     MMSEQSBLASTX_output = run_MMSEQSBLASTX_commands( MMSEQSBLASTX_run_params );
-
+	
     /*
     Protein Methods vs Protein database:
         - BLASTP
@@ -286,17 +292,24 @@ workflow {
                                     .combine( fasta_single_ended_amino_acid )
                                     .combine( MMSEQS_database.db.toList() )
                                     .combine( MMSEQS_database.index.toList() )
-
+    
     MMSEQSBLASTP_output = run_MMSEQSBLASTP_commands( MMSEQSBLASTP_run_params );
 
     //HMMSEARCHAA
     HMMSEARCHAA_database = prepare_HMMSEARCHAA_database( params.amr_prot_database ); 
+	
+	HMMSEARCHAA_hmm = HMMSEARCHAA_database.hmm.collectFile(name: "card90.hmm")
+
 
     HMMSEARCHAA_run_params = runs_ch.HMMSEARCHAA_params
                                     .map{ it -> it[0,1,2] }
                                     .combine( fasta_single_ended_amino_acid )
-                                    .combine( HMMSEARCHAA_database.toList() )
+                                    .combine( HMMSEARCHAA_hmm )
 
     HMMSEARCHAA_output = run_HMMSEARCHAA_commands( HMMSEARCHAA_run_params );
+	
+	//postprocessing_output = summarize_results(BLASTN_output, BOWTIE2_output, BWA_output, GROOT_output, KMA_output, HMMSEARCHNT_output, BLASTX_output, DIAMONDBLASTX_output, PALADIN_output,  BLASTP_output, DIAMONDBLASTP_output, HMMSEARCHAA_output, params.amr_prot_database, params.amr_nucl_database, params.amr_index_database, params.metagenome_amr_map);
+	
+	postprocessing_output = summarize_results(BLASTN_output, BOWTIE2_output, BWA_output, GROOT_output, KMA_output, HMMSEARCHNT_output, BLASTX_output, DIAMONDBLASTX_output, PALADIN_output, MMSEQSBLASTX_output, BLASTP_output, DIAMONDBLASTP_output, MMSEQSBLASTP_output, HMMSEARCHAA_output, params.amr_prot_database, params.amr_nucl_database, params.amr_index_database, params.metagenome_amr_map);
 
 }

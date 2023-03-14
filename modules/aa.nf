@@ -55,10 +55,12 @@ process run_MMSEQSBLASTP_commands {
 // HMMSEARCHAA
 process prepare_HMMSEARCHAA_database {
     conda "$baseDir/conda_envs/hmm.yml"
+	publishDir "results/hmm_cluster_aa", pattern: "cluster_dir/*.faa", mode: "copy"
     input:
         path amr_ref 
     output:
-        path 'card90.hmm'
+        path 'card90.hmm', emit: hmm
+		path ("cluster_dir/*"), emit: clusters
     script:
         """
         mmseqs easy-cluster --min-seq-id 0.7 --remove-tmp-files 1 --threads ${task.cpus} ${amr_ref} clusters tmp
